@@ -22,6 +22,9 @@ export async function POST(req: NextRequest) {
     .from('access_requests')
     .insert({ name: cleanName, email: cleanEmail, phone: cleanPhone })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[access-request] Supabase error:', error.message, error.code, error.details)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ success: true })
 }
