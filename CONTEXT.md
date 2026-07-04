@@ -3,7 +3,7 @@
 > **Purpose of this file:** session-bootstrap context. Read this first at the start of any
 > session to get up to speed without re-reading all source. Keep it updated when major
 > work lands (see "Last completed task" + "Build status").
-> **Last updated:** 2026-06-06
+> **Last updated:** 2026-06-23
 
 ---
 
@@ -14,7 +14,11 @@
 - **Where:** App root is the **`true-cost-revealer/`** subfolder (NOT the parent `cost_Resolver/`).
   Run all toolchain commands from inside `true-cost-revealer/`.
 - **Stack:** Next.js 14.2.35 (App Router) + TypeScript + Tailwind + Supabase (Postgres/Storage).
-- **State:** Feature-complete, **production build passes clean**. NOT yet deployed and **no git repo exists yet**.
+- **State:** Feature-complete, **production build passes clean**. Git repo exists, single commit `5c96746`
+  ("Initial commit: True Cost Revealer") pushed to GitHub (`ochuko9/true-cost-revealer`, `master`).
+  **That push triggered an accidental production deploy on Netlify** (GitHub integration auto-deploys on
+  push) before env vars / Supabase were confirmed set up — treat the live site as **unverified**, not a
+  real launch, until the env vars below are confirmed set in Netlify and a clean redeploy is triggered.
 - **Goal of the UX:** "strike the emotions, produce a state of excitement to act immediately" —
   framing is deliberately **pain / loss-aversion** (cost of inaction), red numbers for losses.
 
@@ -147,11 +151,21 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
   already run in the user's Supabase.**
 - **Production build passes clean** (19 routes); `tsc --noEmit` + `next lint` clean.
 
-### ❌ NOT DONE (required to deploy)
-- **`git init` + first commit + push to GitHub** — *no git repo exists anywhere yet* (Vercel deploys from Git).
-- Create the **Supabase project** → run `supabase/schema.sql` → create a **public Storage bucket named `assets`**
-  (logo uploads need it).
-- Set the **6 env vars in Vercel** (see below) → import repo → **Deploy** → set `NEXT_PUBLIC_APP_URL` to the live domain.
+### ✅ DONE (since last update)
+- `git init` + first commit (`5c96746`) + pushed to GitHub: `ochuko9/true-cost-revealer` (`master`).
+
+### ❌ NOT DONE / NOT CONFIRMED (required before treating prod as real)
+- **Audit the accidental production deploy on Netlify.** The GitHub push triggered an auto-deploy before
+  this was intended. Confirm: are the 6 env vars actually set in Netlify (Site settings → Environment
+  variables)? Is the `@netlify/plugin-nextjs` build plugin active (required for App Router + `middleware.ts`
+  to run as Netlify Edge Functions — without it the invite-gate may not work)? Is it pointed at a real
+  Supabase project?
+- Create the **Supabase project** (if not already) → run `supabase/schema.sql` → create a **public Storage
+  bucket named `assets`** (logo uploads need it).
+- Set/verify the **6 env vars** in Netlify (see below) → **Trigger deploy → Clear cache and deploy site**
+  → set `NEXT_PUBLIC_APP_URL` to the real Netlify URL or custom domain.
+- No `netlify.toml` or `.vercel/` in the repo → site was connected via Netlify's dashboard/GitHub
+  integration directly, with auto-detected build settings (not an explicit config file).
 
 ### ◻️ OPTIONAL (polish / nice-to-have, not blocking)
 - New-lead notification email/SMS (none wired — admin must check `/admin`).
@@ -164,34 +178,46 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 ## Last completed task
 
-**Floating CTA polish (this session).** In order: (1) rebuilt the admin floating-CTA UI from paired preset
-cards into **two independent dropdowns** (label + button decoupled, presets + Custom, live preview) in
-`ConfigEditor.tsx`; (2) rewrote the three **label presets** to a time-pressure ("Clock's ticking") tone to
-match the punchy buttons — `Every day you wait costs more` / `Still bleeding, year after year` /
-`What waiting really costs you`; (3) aligned fresh-deploy **defaults** to the first label/button presets
-(`Every day you wait costs more` / `Stop the bleed →`) across `ConfigEditor.tsx`, `ResultsPage.tsx`,
-`app/calculator/results/page.tsx`, `supabase/schema.sql`; (4) fixed the sticky-bar **label font** (was
-`text-xs` `white/60` → now `text-base` `font-medium` `white/80` to match the button; bumped the dollar
-figure to `text-lg` to stay the hero). All verified: `tsc` + `lint` + `build` clean. **Not committed (no repo).**
+**Git init + push to GitHub (`5c96746`, single "Initial commit" squashing all prior work).** This
+unintentionally triggered a production deploy via Netlify's GitHub integration — the user discovered
+the app live in production "by accident" before confirming env vars or Supabase setup. Working tree is
+currently clean (no uncommitted changes on top of `5c96746`).
+
+Prior to that, the last feature work was: **Floating CTA polish** — (1) rebuilt the admin floating-CTA UI
+from paired preset cards into **two independent dropdowns** (label + button decoupled, presets + Custom,
+live preview) in `ConfigEditor.tsx`; (2) rewrote the three **label presets** to a time-pressure tone —
+`Every day you wait costs more` / `Still bleeding, year after year` / `What waiting really costs you`;
+(3) aligned fresh-deploy **defaults** to the first label/button presets (`Every day you wait costs more` /
+`Stop the bleed →`) across `ConfigEditor.tsx`, `ResultsPage.tsx`, `app/calculator/results/page.tsx`,
+`supabase/schema.sql`; (4) fixed the sticky-bar **label font** (`text-xs white/60` → `text-base font-medium
+white/80`; dollar figure bumped to `text-lg`). All verified: `tsc` + `lint` + `build` clean.
 
 ---
 
 ## Recommended next task
 
-**Ship it: deployment wiring (Vercel + Supabase).** Concretely:
-1. `cd true-cost-revealer && git init` → commit → create private GitHub repo → push.
-2. Create Supabase project → SQL editor → run `supabase/schema.sql` → Storage → new **public** bucket `assets`.
-3. Vercel → import repo → add the 6 env vars (below) → Deploy → update `NEXT_PUBLIC_APP_URL` to the prod URL.
-4. Smoke test: `/request-access` submit → row in `access_requests`; `/admin` login → convert lead → copy token
+**Audit the accidental Netlify deploy, then make it a real launch.** Concretely:
+1. Open the Netlify dashboard for `true-cost-revealer` (Site settings → Build & deploy → Repository,
+   confirm it points at `ochuko9/true-cost-revealer`).
+2. Confirm/set the 6 env vars there (below) — if unset, the app is currently running on the **insecure
+   `ADMIN_PASSWORD`/`JWT_SECRET` fallbacks** (see Known issue #2), which is the urgent risk of an
+   unaudited accidental deploy.
+3. Confirm `@netlify/plugin-nextjs` is active under Build plugins (needed for `middleware.ts` invite-gate
+   to run as Edge Functions).
+4. Confirm a real Supabase project exists, `supabase/schema.sql` has been run, and a public Storage bucket
+   `assets` exists.
+5. Trigger a clean redeploy ("Clear cache and deploy site") after env vars are set; update
+   `NEXT_PUBLIC_APP_URL` to the real Netlify URL/custom domain.
+6. Smoke test: `/request-access` submit → row in `access_requests`; `/admin` login → convert lead → copy token
    link → open it → complete calculator → see report → download a PDF.
 
-After deploy, the highest-value optional is a **new-lead notification email** (so leads aren't missed).
+After that, the highest-value optional is a **new-lead notification email** (so leads aren't missed).
 
 ---
 
 ## Environment variables (names only — never commit values)
 
-Copy `.env.local.example` → `.env.local` locally; set the same in Vercel → Settings → Environment Variables.
+Copy `.env.local.example` → `.env.local` locally; set the same in Netlify → Site settings → Environment variables.
 
 | Var | Notes |
 |---|---|
@@ -200,13 +226,16 @@ Copy `.env.local.example` → `.env.local` locally; set the same in Vercel → S
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key — **server only**, full DB access |
 | `ADMIN_PASSWORD` | login for `/admin`. **Code fallback is `changeme` — MUST override in prod.** |
 | `JWT_SECRET` | signs admin JWT. **Has an insecure hard-coded fallback — MUST override in prod.** Gen: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; prod domain in Vercel (used for invite/magic links) |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; prod domain in Netlify (used for invite/magic links) |
 
 ---
 
 ## Known issues
 
-1. **No git repo yet** anywhere up the tree → must `git init` before Vercel can deploy.
+1. **Accidental production deploy on Netlify.** Pushing the initial commit to GitHub triggered an
+   auto-deploy via Netlify's GitHub integration before env vars/Supabase were confirmed. Treat the live
+   URL as unaudited until env vars are verified in Netlify (see Known issue #2), the `@netlify/plugin-nextjs`
+   build plugin is confirmed active, and Supabase is confirmed correctly wired.
 2. **Insecure secret fallbacks in code:** if `ADMIN_PASSWORD` / `JWT_SECRET` env vars are unset, the app still
    boots with `changeme` / a known default → admin wide open. Always set them in prod. (Consider failing fast
    if missing — not yet implemented.)
