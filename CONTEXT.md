@@ -3,7 +3,7 @@
 > **Purpose of this file:** session-bootstrap context. Read this first at the start of any
 > session to get up to speed without re-reading all source. Keep it updated when major
 > work lands (see "Last completed task" + "Build status").
-> **Last updated:** 2026-06-23
+> **Last updated:** 2026-07-12
 
 ---
 
@@ -14,11 +14,14 @@
 - **Where:** App root is the **`true-cost-revealer/`** subfolder (NOT the parent `cost_Resolver/`).
   Run all toolchain commands from inside `true-cost-revealer/`.
 - **Stack:** Next.js 14.2.35 (App Router) + TypeScript + Tailwind + Supabase (Postgres/Storage).
-- **State:** Feature-complete, **production build passes clean**. Git repo exists, single commit `5c96746`
-  ("Initial commit: True Cost Revealer") pushed to GitHub (`ochuko9/true-cost-revealer`, `master`).
-  **That push triggered an accidental production deploy on Netlify** (GitHub integration auto-deploys on
-  push) before env vars / Supabase were confirmed set up — treat the live site as **unverified**, not a
-  real launch, until the env vars below are confirmed set in Netlify and a clean redeploy is triggered.
+- **State:** Feature-complete, **production build passes clean**, and **live in production on Vercel**
+  at **`https://tcr.hamsaga.com`** (custom domain, Namecheap DNS, auto-provisioned SSL). Fully verified
+  end-to-end: lead capture → admin convert-to-client → token link → calculator → report → PDF download
+  all confirmed working by the user.
+- **Deploy platform is Vercel, NOT Netlify.** The project was originally accidentally deployed on
+  Netlify via GitHub auto-deploy before env vars were set; that Netlify site/data was deleted entirely
+  and the project was re-deployed fresh on Vercel (2026-07-09/10). `netlify.toml` was removed from the
+  repo. See "Known issues" for the root cause of the 401 hit during migration and how it was fixed.
 - **Goal of the UX:** "strike the emotions, produce a state of excitement to act immediately" —
   framing is deliberately **pain / loss-aversion** (cost of inaction), red numbers for losses.
 
@@ -153,19 +156,19 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 ### ✅ DONE (since last update)
 - `git init` + first commit (`5c96746`) + pushed to GitHub: `ochuko9/true-cost-revealer` (`master`).
+- **Migrated deployment from Netlify to Vercel.** Netlify site/data deleted; `netlify.toml` removed
+  (commit `eb5b725`). Project imported into Vercel via GitHub, root directory `./`. No code changes
+  needed — `next.config.mjs` had nothing Netlify-specific.
+- **All 6 env vars confirmed set correctly in Vercel** (Project → Settings → Environments → Production
+  — note Vercel renamed the old "Environment Variables" page to "Environments").
+- **Custom domain live:** `tcr.hamsaga.com` (Namecheap CNAME → `cname.vercel-dns.com`), SSL
+  auto-provisioned by Vercel. `NEXT_PUBLIC_APP_URL` updated to match and redeployed.
+- **Full end-to-end smoke test passed:** lead form submit → admin convert lead to client → copy token
+  link → open it → complete calculator → report renders → PDF downloads. All confirmed working in prod.
 
-### ❌ NOT DONE / NOT CONFIRMED (required before treating prod as real)
-- **Audit the accidental production deploy on Netlify.** The GitHub push triggered an auto-deploy before
-  this was intended. Confirm: are the 6 env vars actually set in Netlify (Site settings → Environment
-  variables)? Is the `@netlify/plugin-nextjs` build plugin active (required for App Router + `middleware.ts`
-  to run as Netlify Edge Functions — without it the invite-gate may not work)? Is it pointed at a real
-  Supabase project?
-- Create the **Supabase project** (if not already) → run `supabase/schema.sql` → create a **public Storage
-  bucket named `assets`** (logo uploads need it).
-- Set/verify the **6 env vars** in Netlify (see below) → **Trigger deploy → Clear cache and deploy site**
-  → set `NEXT_PUBLIC_APP_URL` to the real Netlify URL or custom domain.
-- No `netlify.toml` or `.vercel/` in the repo → site was connected via Netlify's dashboard/GitHub
-  integration directly, with auto-detected build settings (not an explicit config file).
+### ❌ NOT DONE / NOT CONFIRMED
+- Confirm a public Storage bucket named **`assets`** exists in Supabase (needed for admin logo uploads
+  — not yet exercised in the smoke test).
 
 ### ◻️ OPTIONAL (polish / nice-to-have, not blocking)
 - New-lead notification email/SMS (none wired — admin must check `/admin`).
@@ -178,10 +181,13 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 ## Last completed task
 
-**Git init + push to GitHub (`5c96746`, single "Initial commit" squashing all prior work).** This
-unintentionally triggered a production deploy via Netlify's GitHub integration — the user discovered
-the app live in production "by accident" before confirming env vars or Supabase setup. Working tree is
-currently clean (no uncommitted changes on top of `5c96746`).
+**Migrated deployment from Netlify to Vercel and did a full production launch verification.** User
+deleted the Netlify site/data entirely, removed `netlify.toml` (`eb5b725`), imported the repo into
+Vercel via GitHub, set all 6 env vars, connected the custom domain `tcr.hamsaga.com` via Namecheap, and
+ran a complete smoke test (lead form → admin convert-to-client → token link → calculator → report → PDF)
+— all confirmed working. Along the way, hit and fixed a 401/crash caused by (1) Vercel env vars not
+saving on first entry during the import flow, and (2) a Supabase project/key mismatch between what was
+typed fresh into Vercel vs. the working local `.env.local` — fixed by copying the exact local values in.
 
 Prior to that, the last feature work was: **Floating CTA polish** — (1) rebuilt the admin floating-CTA UI
 from paired preset cards into **two independent dropdowns** (label + button decoupled, presets + Custom,
@@ -196,28 +202,22 @@ white/80`; dollar figure bumped to `text-lg`). All verified: `tsc` + `lint` + `b
 
 ## Recommended next task
 
-**Audit the accidental Netlify deploy, then make it a real launch.** Concretely:
-1. Open the Netlify dashboard for `true-cost-revealer` (Site settings → Build & deploy → Repository,
-   confirm it points at `ochuko9/true-cost-revealer`).
-2. Confirm/set the 6 env vars there (below) — if unset, the app is currently running on the **insecure
-   `ADMIN_PASSWORD`/`JWT_SECRET` fallbacks** (see Known issue #2), which is the urgent risk of an
-   unaudited accidental deploy.
-3. Confirm `@netlify/plugin-nextjs` is active under Build plugins (needed for `middleware.ts` invite-gate
-   to run as Edge Functions).
-4. Confirm a real Supabase project exists, `supabase/schema.sql` has been run, and a public Storage bucket
-   `assets` exists.
-5. Trigger a clean redeploy ("Clear cache and deploy site") after env vars are set; update
-   `NEXT_PUBLIC_APP_URL` to the real Netlify URL/custom domain.
-6. Smoke test: `/request-access` submit → row in `access_requests`; `/admin` login → convert lead → copy token
-   link → open it → complete calculator → see report → download a PDF.
-
-After that, the highest-value optional is a **new-lead notification email** (so leads aren't missed).
+Production is live and verified — no urgent blockers. Highest-value optionals from here:
+1. **New-lead notification email/SMS** — leads currently land silently in `access_requests`; admin has
+   to check `/admin` manually to notice them (see Known issue #4).
+2. **Real invite-email sending** — magic-link generation is currently a no-op; "copy token URL" is the
+   only working invite path (see Known issue #3).
+3. Confirm the public Storage bucket **`assets`** exists in Supabase (logo upload feature untested since
+   the Vercel migration).
+4. Spam protection (rate limit/captcha/honeypot) on the public `/api/access-request` endpoint.
 
 ---
 
 ## Environment variables (names only — never commit values)
 
-Copy `.env.local.example` → `.env.local` locally; set the same in Netlify → Site settings → Environment variables.
+Copy `.env.local.example` → `.env.local` locally; set the same in Vercel → Project → Settings →
+**Environments → Production** (Vercel renamed the old single "Environment Variables" page to
+"Environments" — the per-environment var list lives one level in from there).
 
 | Var | Notes |
 |---|---|
@@ -226,16 +226,23 @@ Copy `.env.local.example` → `.env.local` locally; set the same in Netlify → 
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key — **server only**, full DB access |
 | `ADMIN_PASSWORD` | login for `/admin`. **Code fallback is `changeme` — MUST override in prod.** |
 | `JWT_SECRET` | signs admin JWT. **Has an insecure hard-coded fallback — MUST override in prod.** Gen: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; prod domain in Netlify (used for invite/magic links) |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; `https://tcr.hamsaga.com` in prod (used for invite/magic links) |
 
 ---
 
 ## Known issues
 
-1. **Accidental production deploy on Netlify.** Pushing the initial commit to GitHub triggered an
-   auto-deploy via Netlify's GitHub integration before env vars/Supabase were confirmed. Treat the live
-   URL as unaudited until env vars are verified in Netlify (see Known issue #2), the `@netlify/plugin-nextjs`
-   build plugin is confirmed active, and Supabase is confirmed correctly wired.
+1. **Vercel env vars can silently fail to save on first entry during the GitHub-import flow.** During
+   the Netlify→Vercel migration, values typed into the "Add New Project" import screen's env var fields
+   didn't actually persist — the project's Environments → Production page showed "No Environment
+   Variables Added" despite having filled them in. Fix: add/verify them *after* import completes, directly
+   under Project → Settings → **Environments → Production**, then redeploy. Don't trust that a page loading
+   (e.g. `/request-access`) proves env vars are correct — public/static pages render fine even with zero
+   Supabase config, since nothing hits Supabase until a form submits or a server component fetches config.
+   Verify by hitting a Supabase-backed API route directly, e.g. `GET /api/admin/config`, and checking the
+   actual response body (not just HTTP status) — a `{"espring": null, "paypal": null}` response with a
+   `200` status means the Supabase call succeeded but found no matching row (likely wrong project/key),
+   not that something crashed.
 2. **Insecure secret fallbacks in code:** if `ADMIN_PASSWORD` / `JWT_SECRET` env vars are unset, the app still
    boots with `changeme` / a known default → admin wide open. Always set them in prod. (Consider failing fast
    if missing — not yet implemented.)
