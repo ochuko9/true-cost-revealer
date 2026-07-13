@@ -28,6 +28,9 @@ create table if not exists espring_config (
   -- dollar figure is computed). Not used in any PDF.
   floating_cta_label text not null default 'Every day you wait costs more',
   floating_cta_button text not null default 'Stop the bleed →',
+  -- Where the floating CTA button links to. Opens in a new tab; falls back to
+  -- scrolling to the on-page CTA section when unset.
+  floating_cta_url text,
   logo_url text,
   -- Consultant / sales-rep contact details surfaced by the closing CTA block
   consultant_name text,
@@ -60,6 +63,7 @@ create table if not exists espring_config (
 --     add column if not exists warranty_text text,
 --     add column if not exists floating_cta_label text not null default 'Every day you wait costs more',
 --     add column if not exists floating_cta_button text not null default 'Stop the bleed →',
+--     add column if not exists floating_cta_url text,
 --     add column if not exists assumed_return_rate numeric(5,4) not null default 0.08,
 --     add column if not exists default_client_tier text not null default 'full',
 --     add column if not exists pdf_templates jsonb not null default '{

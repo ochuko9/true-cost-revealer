@@ -265,6 +265,14 @@ export default function ConfigEditor() {
               )}
             </div>
           </div>
+          <Input
+            label="Button link"
+            type="url"
+            value={espring.floating_cta_url ?? ''}
+            onChange={e => patchEspring({ floating_cta_url: e.target.value || null })}
+            placeholder="https://your-landing-page.com"
+            hint="Where the button sends the client. Leave blank to just scroll to the CTA section below."
+          />
           {/* Live preview of the resulting (possibly mixed) pairing */}
           <div className="rounded-xl border border-white/10 bg-navy/40 px-4 py-3">
             <p className="text-[10px] uppercase tracking-wider text-white/50 mb-1.5">Preview</p>

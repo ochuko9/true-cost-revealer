@@ -14,6 +14,9 @@ export interface ESpringConfig {
    *  dollar figure shown in the bar is always computed. Not used in any PDF. */
   floating_cta_label: string
   floating_cta_button: string
+  /** Where the floating CTA button links to. Opens in a new tab; falls back to
+   *  scrolling to the on-page CTA section when unset. */
+  floating_cta_url: string | null
   logo_url: string | null
   /** Consultant / sales-rep contact details used by the closing CTA block */
   consultant_name: string | null

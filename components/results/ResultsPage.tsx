@@ -144,6 +144,13 @@ export default function ResultsPage({ espringConfig, paypalConfig, downloadTier 
     : 0
   const scrollToCta = () =>
     document.getElementById('get-espring')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const handleFloatingCtaClick = () => {
+    if (espringConfig.floating_cta_url) {
+      window.open(espringConfig.floating_cta_url, '_blank', 'noopener,noreferrer')
+    } else {
+      scrollToCta()
+    }
+  }
 
   return (
     <div className="min-h-screen bg-navy">
@@ -269,7 +276,7 @@ export default function ResultsPage({ espringConfig, paypalConfig, downloadTier 
             <p className="text-white/80 text-base font-medium leading-tight">{espringConfig.floating_cta_label || 'Every day you wait costs more'}</p>
             <p className="text-red-300 font-bold text-lg tabular-nums leading-tight">{formatCurrency(tenYearSavings, sym)}</p>
           </div>
-          <Button className="flex-1 sm:flex-none sm:ml-auto" onClick={scrollToCta}>
+          <Button className="flex-1 sm:flex-none sm:ml-auto" onClick={handleFloatingCtaClick}>
             {espringConfig.floating_cta_button || 'Stop the bleed →'}
           </Button>
         </div>

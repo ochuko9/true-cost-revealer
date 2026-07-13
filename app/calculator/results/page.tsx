@@ -28,6 +28,7 @@ const DEFAULT_ESPRING: ESpringConfig = {
   cta_text: "Ready to stop paying for water? Let's talk.",
   floating_cta_label: 'Every day you wait costs more',
   floating_cta_button: 'Stop the bleed →',
+  floating_cta_url: null,
   logo_url: null,
   consultant_name: null,
   consultant_phone: null,
