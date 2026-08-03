@@ -3,7 +3,7 @@
 > **Purpose of this file:** session-bootstrap context. Read this first at the start of any
 > session to get up to speed without re-reading all source. Keep it updated when major
 > work lands (see "Last completed task" + "Build status").
-> **Last updated:** 2026-07-12
+> **Last updated:** 2026-07-22
 
 ---
 
@@ -107,7 +107,7 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 | Table | Role | RLS |
 |---|---|---|
-| `espring_config` | Singleton: prices, inflation, return rate, CTA text, **floating_cta_label/button**, consultant info, logo, `pdf_templates` (brief/standard/full section-ID arrays), `default_client_tier` | **public read**, service-role write |
+| `espring_config` | Singleton: prices, inflation, return rate, CTA text, **floating_cta_label/button/url**, consultant info, logo, `pdf_templates` (brief/standard/full section-ID arrays), `default_client_tier` | **public read**, service-role write |
 | `paypal_config` | Singleton: hard-coded financing plans (6/12/24-mo) | **public read**, service-role write |
 | `clients` | Invited clients: `token`, `access_enabled`, `expires_at`, `download_tier` | **service-role only** |
 | `access_requests` | Captured leads (name/email/phone/`converted`) | **service-role only** |
@@ -147,6 +147,8 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 - Results report: ~13 narrative sections + sticky floating CTA + report persistence.
 - **Floating CTA admin controls:** two **independent dropdowns** (Stakes label / Button text), each = presets
   + "Custom…" free-text, decoupled (mix & match), with live preview. Defaults aligned to first presets.
+  Button also has an **admin-set link** (`floating_cta_url`) — opens in a new tab when clicking the sticky
+  button; falls back to the original scroll-to-`#get-espring` behavior when left blank.
 - PDF export: brief/standard/full templates, gated by client `download_tier`; snapshot saved.
 - Admin panel: client CRUD + token links + enable/disable + stats; leads view/convert/dismiss; full ConfigEditor
   (eSpring, PayPal, PDF templates, floating CTA, consultant info, logo upload).
@@ -165,6 +167,13 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
   auto-provisioned by Vercel. `NEXT_PUBLIC_APP_URL` updated to match and redeployed.
 - **Full end-to-end smoke test passed:** lead form submit → admin convert lead to client → copy token
   link → open it → complete calculator → report renders → PDF downloads. All confirmed working in prod.
+- **Admin-configurable floating CTA link** (`floating_cta_url`, commit `b72f447`): the sticky floating
+  CTA button now opens an admin-set URL in a new tab (currently pointed at `register.amway.com`);
+  blank = falls back to the previous scroll-to-`#get-espring` behavior. Required a Supabase migration
+  (`alter table espring_config add column if not exists floating_cta_url text;`) — this **has been run**
+  against the production Supabase project (feature was tested end-to-end, automated + manual, and
+  shipped/verified live). Followed by an empty "trigger redeploy" commit (`3960714`) after a GitHub
+  committer-email verification hiccup delayed the Vercel auto-deploy.
 
 ### ❌ NOT DONE / NOT CONFIRMED
 - Confirm a public Storage bucket named **`assets`** exists in Supabase (needed for admin logo uploads
@@ -181,8 +190,18 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 ## Last completed task
 
-**Migrated deployment from Netlify to Vercel and did a full production launch verification.** User
-deleted the Netlify site/data entirely, removed `netlify.toml` (`eb5b725`), imported the repo into
+**Added an admin-configurable link to the floating CTA button** (`floating_cta_url`, commit `b72f447`,
+2026-07-13). The sticky floating CTA on the results page now opens an admin-set URL in a new tab when
+clicked (currently pointed at `register.amway.com`), falling back to the existing scroll-to-CTA-section
+behavior when left blank — existing configs keep working unchanged. Touched `types/index.ts`,
+`supabase/schema.sql` (+ migration note), `app/calculator/results/page.tsx` (default fallback),
+`ConfigEditor.tsx` (new "Button link" input), `ResultsPage.tsx` (click handler). Required and ran a
+Supabase migration (`alter table espring_config add column if not exists floating_cta_url text;`).
+Built, tested (automated + manual), and shipped to production; followed by an empty commit (`3960714`)
+to retrigger a Vercel auto-deploy that had stalled on a GitHub committer-email verification issue.
+
+Prior to that: **migrated deployment from Netlify to Vercel and did a full production launch
+verification.** User deleted the Netlify site/data entirely, removed `netlify.toml` (`eb5b725`), imported the repo into
 Vercel via GitHub, set all 6 env vars, connected the custom domain `tcr.hamsaga.com` via Namecheap, and
 ran a complete smoke test (lead form → admin convert-to-client → token link → calculator → report → PDF)
 — all confirmed working. Along the way, hit and fixed a 401/crash caused by (1) Vercel env vars not
