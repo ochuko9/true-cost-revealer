@@ -190,7 +190,20 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 ## Last completed task
 
-**Added an admin-configurable link to the floating CTA button** (`floating_cta_url`, commit `b72f447`,
+**Fixed a crash on `/admin` after login** (2026-08-03): user reported "Application error: a client-side
+exception has occurred" right after admin login. Reproduced locally (Playwright against a local dev
+server pointed at the same Supabase project as prod) and root-caused to `ConfigEditor.tsx`: when
+`GET /api/admin/config` returns `{"espring": null, "paypal": null}` (see Known issue #1 — happens when
+Supabase can't be reached or the singleton config row isn't found), the component unconditionally read
+fields off the null `espring`/`paypal` objects (starting at the `labelIsCustom`/`buttonIsCustom` derived
+state, e.g. `espring.floating_cta_label`), throwing during render and taking down the whole page. Fixed
+by adding a `loadError` state: a null/failed config response now renders a "couldn't load configuration —
+Retry" block instead of the form. Verified with `tsc --noEmit` and a targeted `eslint` pass (clean).
+**Not yet resolved:** *why* the config API was returning null in the first place — that's a Supabase-side
+question (connectivity, project status, or the config row) the user should check separately; this fix
+only stops it from crashing the page.
+
+Prior to that: **added an admin-configurable link to the floating CTA button** (`floating_cta_url`, commit `b72f447`,
 2026-07-13). The sticky floating CTA on the results page now opens an admin-set URL in a new tab when
 clicked (currently pointed at `register.amway.com`), falling back to the existing scroll-to-CTA-section
 behavior when left blank — existing configs keep working unchanged. Touched `types/index.ts`,
@@ -262,6 +275,15 @@ Copy `.env.local.example` → `.env.local` locally; set the same in Vercel → P
    actual response body (not just HTTP status) — a `{"espring": null, "paypal": null}` response with a
    `200` status means the Supabase call succeeded but found no matching row (likely wrong project/key),
    not that something crashed.
+   **Update 2026-08-03:** this exact null-config condition used to take down the *entire* `/admin` page
+   with Next.js's generic "Application error: a client-side exception has occurred" — `ConfigEditor.tsx`
+   destructured `espring`/`paypal` from the API response and read fields off them (e.g.
+   `espring.floating_cta_label`) with no null guard, so a null response crashed the whole component tree
+   (`ClientManager`/`AccessRequestsManager` fail gracefully via `Array.isArray` checks; `ConfigEditor` did
+   not). Fixed by adding a `loadError` state that shows a "couldn't load config, Retry" block instead of
+   rendering the form when the response is null — root cause of the *underlying* null response (Supabase
+   connectivity/row) is still whatever this item describes and needs checking separately (Supabase project
+   status/env vars) if it recurs.
 2. **Insecure secret fallbacks in code:** if `ADMIN_PASSWORD` / `JWT_SECRET` env vars are unset, the app still
    boots with `changeme` / a known default → admin wide open. Always set them in prod. (Consider failing fast
    if missing — not yet implemented.)
