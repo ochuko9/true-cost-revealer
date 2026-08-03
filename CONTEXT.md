@@ -3,7 +3,7 @@
 > **Purpose of this file:** session-bootstrap context. Read this first at the start of any
 > session to get up to speed without re-reading all source. Keep it updated when major
 > work lands (see "Last completed task" + "Build status").
-> **Last updated:** 2026-07-12
+> **Last updated:** 2026-07-22
 
 ---
 
@@ -107,7 +107,7 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 | Table | Role | RLS |
 |---|---|---|
-| `espring_config` | Singleton: prices, inflation, return rate, CTA text, **floating_cta_label/button**, consultant info, logo, `pdf_templates` (brief/standard/full section-ID arrays), `default_client_tier` | **public read**, service-role write |
+| `espring_config` | Singleton: prices, inflation, return rate, CTA text, **floating_cta_label/button/url**, consultant info, logo, `pdf_templates` (brief/standard/full section-ID arrays), `default_client_tier` | **public read**, service-role write |
 | `paypal_config` | Singleton: hard-coded financing plans (6/12/24-mo) | **public read**, service-role write |
 | `clients` | Invited clients: `token`, `access_enabled`, `expires_at`, `download_tier` | **service-role only** |
 | `access_requests` | Captured leads (name/email/phone/`converted`) | **service-role only** |
@@ -147,6 +147,8 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 - Results report: ~13 narrative sections + sticky floating CTA + report persistence.
 - **Floating CTA admin controls:** two **independent dropdowns** (Stakes label / Button text), each = presets
   + "Custom…" free-text, decoupled (mix & match), with live preview. Defaults aligned to first presets.
+  Button also has an **admin-set link** (`floating_cta_url`) — opens in a new tab when clicking the sticky
+  button; falls back to the original scroll-to-`#get-espring` behavior when left blank.
 - PDF export: brief/standard/full templates, gated by client `download_tier`; snapshot saved.
 - Admin panel: client CRUD + token links + enable/disable + stats; leads view/convert/dismiss; full ConfigEditor
   (eSpring, PayPal, PDF templates, floating CTA, consultant info, logo upload).
@@ -165,6 +167,13 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
   auto-provisioned by Vercel. `NEXT_PUBLIC_APP_URL` updated to match and redeployed.
 - **Full end-to-end smoke test passed:** lead form submit → admin convert lead to client → copy token
   link → open it → complete calculator → report renders → PDF downloads. All confirmed working in prod.
+- **Admin-configurable floating CTA link** (`floating_cta_url`, commit `b72f447`): the sticky floating
+  CTA button now opens an admin-set URL in a new tab (currently pointed at `register.amway.com`);
+  blank = falls back to the previous scroll-to-`#get-espring` behavior. Required a Supabase migration
+  (`alter table espring_config add column if not exists floating_cta_url text;`) — this **has been run**
+  against the production Supabase project (feature was tested end-to-end, automated + manual, and
+  shipped/verified live). Followed by an empty "trigger redeploy" commit (`3960714`) after a GitHub
+  committer-email verification hiccup delayed the Vercel auto-deploy.
 
 ### ❌ NOT DONE / NOT CONFIRMED
 - Confirm a public Storage bucket named **`assets`** exists in Supabase (needed for admin logo uploads
@@ -181,8 +190,31 @@ IDs: eSpring `00000000-0000-0000-0000-000000000001`, PayPal `…0002`.
 
 ## Last completed task
 
-**Migrated deployment from Netlify to Vercel and did a full production launch verification.** User
-deleted the Netlify site/data entirely, removed `netlify.toml` (`eb5b725`), imported the repo into
+**Fixed a crash on `/admin` after login** (2026-08-03): user reported "Application error: a client-side
+exception has occurred" right after admin login. Reproduced locally (Playwright against a local dev
+server pointed at the same Supabase project as prod) and root-caused to `ConfigEditor.tsx`: when
+`GET /api/admin/config` returns `{"espring": null, "paypal": null}` (see Known issue #1 — happens when
+Supabase can't be reached or the singleton config row isn't found), the component unconditionally read
+fields off the null `espring`/`paypal` objects (starting at the `labelIsCustom`/`buttonIsCustom` derived
+state, e.g. `espring.floating_cta_label`), throwing during render and taking down the whole page. Fixed
+by adding a `loadError` state: a null/failed config response now renders a "couldn't load configuration —
+Retry" block instead of the form. Verified with `tsc --noEmit` and a targeted `eslint` pass (clean).
+**Not yet resolved:** *why* the config API was returning null in the first place — that's a Supabase-side
+question (connectivity, project status, or the config row) the user should check separately; this fix
+only stops it from crashing the page.
+
+Prior to that: **added an admin-configurable link to the floating CTA button** (`floating_cta_url`, commit `b72f447`,
+2026-07-13). The sticky floating CTA on the results page now opens an admin-set URL in a new tab when
+clicked (currently pointed at `register.amway.com`), falling back to the existing scroll-to-CTA-section
+behavior when left blank — existing configs keep working unchanged. Touched `types/index.ts`,
+`supabase/schema.sql` (+ migration note), `app/calculator/results/page.tsx` (default fallback),
+`ConfigEditor.tsx` (new "Button link" input), `ResultsPage.tsx` (click handler). Required and ran a
+Supabase migration (`alter table espring_config add column if not exists floating_cta_url text;`).
+Built, tested (automated + manual), and shipped to production; followed by an empty commit (`3960714`)
+to retrigger a Vercel auto-deploy that had stalled on a GitHub committer-email verification issue.
+
+Prior to that: **migrated deployment from Netlify to Vercel and did a full production launch
+verification.** User deleted the Netlify site/data entirely, removed `netlify.toml` (`eb5b725`), imported the repo into
 Vercel via GitHub, set all 6 env vars, connected the custom domain `tcr.hamsaga.com` via Namecheap, and
 ran a complete smoke test (lead form → admin convert-to-client → token link → calculator → report → PDF)
 — all confirmed working. Along the way, hit and fixed a 401/crash caused by (1) Vercel env vars not
@@ -243,6 +275,15 @@ Copy `.env.local.example` → `.env.local` locally; set the same in Vercel → P
    actual response body (not just HTTP status) — a `{"espring": null, "paypal": null}` response with a
    `200` status means the Supabase call succeeded but found no matching row (likely wrong project/key),
    not that something crashed.
+   **Update 2026-08-03:** this exact null-config condition used to take down the *entire* `/admin` page
+   with Next.js's generic "Application error: a client-side exception has occurred" — `ConfigEditor.tsx`
+   destructured `espring`/`paypal` from the API response and read fields off them (e.g.
+   `espring.floating_cta_label`) with no null guard, so a null response crashed the whole component tree
+   (`ClientManager`/`AccessRequestsManager` fail gracefully via `Array.isArray` checks; `ConfigEditor` did
+   not). Fixed by adding a `loadError` state that shows a "couldn't load config, Retry" block instead of
+   rendering the form when the response is null — root cause of the *underlying* null response (Supabase
+   connectivity/row) is still whatever this item describes and needs checking separately (Supabase project
+   status/env vars) if it recurs.
 2. **Insecure secret fallbacks in code:** if `ADMIN_PASSWORD` / `JWT_SECRET` env vars are unset, the app still
    boots with `changeme` / a known default → admin wide open. Always set them in prod. (Consider failing fast
    if missing — not yet implemented.)

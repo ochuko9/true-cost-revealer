@@ -39,29 +39,40 @@ export default function ConfigEditor() {
   const [saving, setSaving] = useState<'espring' | 'paypal' | null>(null)
   const [saved, setSaved] = useState<'espring' | 'paypal' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Set when the config fetch succeeds but espring/paypal come back null (e.g. a
+  // Supabase hiccup or the singleton row missing) — distinct from `error`, which is
+  // for save/upload failures. Kept separate from `config` so a bad response can't
+  // put the rest of this component in a state where it reads null fields and crashes.
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   // Whether each floating-CTA dropdown is on a preset or in free-text "Custom" mode.
   // null = not yet chosen by the admin this session → derived from the saved value.
   const [labelMode, setLabelMode] = useState<'preset' | 'custom' | null>(null)
   const [buttonMode, setButtonMode] = useState<'preset' | 'custom' | null>(null)
 
-  useEffect(() => {
+  function loadConfig() {
+    setLoadError(null)
     // cache: 'no-store' guarantees we always get the latest config from Supabase,
     // not a stale browser/HTTP cache from a previous session.
     fetch('/api/admin/config', { cache: 'no-store' })
       .then(r => r.json())
       .then((data: ConfigData) => {
+        if (!data?.espring || !data?.paypal) {
+          setLoadError('Configuration failed to load from the database (got an empty response). This usually means a temporary Supabase connection issue — try reloading.')
+          return
+        }
         // Backfill defaults for deployments where the migration hasn't run yet,
         // so the templates UI always has something valid to render/edit.
-        if (data?.espring) {
-          if (!data.espring.pdf_templates) data.espring.pdf_templates = DEFAULT_PDF_TEMPLATES
-          if (!data.espring.default_client_tier) data.espring.default_client_tier = 'full'
-          if (!data.espring.floating_cta_label) data.espring.floating_cta_label = 'Every day you wait costs more'
-          if (!data.espring.floating_cta_button) data.espring.floating_cta_button = 'Stop the bleed →'
-        }
+        if (!data.espring.pdf_templates) data.espring.pdf_templates = DEFAULT_PDF_TEMPLATES
+        if (!data.espring.default_client_tier) data.espring.default_client_tier = 'full'
+        if (!data.espring.floating_cta_label) data.espring.floating_cta_label = 'Every day you wait costs more'
+        if (!data.espring.floating_cta_button) data.espring.floating_cta_button = 'Stop the bleed →'
         setConfig(data)
       })
-  }, [])
+      .catch(() => setLoadError('Configuration failed to load — network error while reaching the server.'))
+  }
+
+  useEffect(() => { loadConfig() }, [])
 
   // ── PDF template helpers ──────────────────────────────────────────────
   function isInTemplate(template: TemplateName, sectionId: SectionId): boolean {
@@ -162,6 +173,15 @@ export default function ConfigEditor() {
     const { url } = await res.json()
     if (url) patchEspring({ logo_url: url })
     setUploadingLogo(false)
+  }
+
+  if (loadError) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-6 text-center space-y-3">
+        <p className="text-red-200 text-sm">{loadError}</p>
+        <Button onClick={loadConfig} size="sm" variant="ghost">Retry</Button>
+      </div>
+    )
   }
 
   if (!config) return <div className="text-white/50 text-sm py-8 text-center">Loading config…</div>
